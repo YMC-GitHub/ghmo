@@ -29,13 +29,11 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # ===========================
 # 一次性安装所有！防止重复下载
 # ===========================
-RUN pip install "numpy<2" \
-    "torch==2.2.0+cpu" \
-    transformers \
-    pillow \
-    einops \
-    timm \
-    --index-url https://download.pytorch.org/whl/cpu
+# 1. 先装普通依赖（阿里云源，正常速度）
+RUN pip install "numpy<2" transformers pillow einops timm
+
+# 2. 再单独装 torch（只用官方源装这一个包）
+RUN pip install torch==2.2.0+cpu --index-url https://download.pytorch.org/whl/cpu
 
 
 # 导出脚本
