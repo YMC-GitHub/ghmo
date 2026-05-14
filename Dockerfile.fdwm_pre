@@ -1,0 +1,83 @@
+# ==============================================
+# 构建参数
+# ==============================================
+ARG MODEL_ID="microsoft/Florence-2-base"
+ARG DEVICE="cpu"
+ARG TORCH_DTYPE="float32"
+
+# ==============================================
+# 基础镜像
+# ==============================================
+FROM python:3.11-slim AS base
+
+ARG MODEL_ID
+ARG DEVICE
+ARG TORCH_DTYPE
+
+# 阿里云 apt
+# RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+# 关闭警告 + 国内镜像
+ENV PIP_ROOT_USER_ACTION=ignore
+# ENV HF_ENDPOINT="https://hf-mirror.com"
+
+# pip 国内源
+# RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+
+# ===========================
+# 一次性安装所有！防止重复下载
+# ===========================
+RUN pip install "numpy<2" \
+    "torch==2.2.0+cpu" \
+    transformers==4.41.0 \
+    pillow \
+    einops \
+    timm \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# 导出脚本
+COPY <<EOF /app/export.py
+import os
+# os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ["FLASH_ATTENTION"] = "0"
+
+import torch
+from transformers import AutoProcessor, AutoModelForCausalLM
+
+model_id = "${MODEL_ID}"
+device = "${DEVICE}"
+torch_dtype = torch.${TORCH_DTYPE}
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch_dtype,
+    trust_remote_code=True,
+    flash_attention=False
+).to(device).eval()
+
+processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+
+prompt = "<CAPTION_TO_PHRASE_GROUNDING> watermark"
+dummy_img = torch.randn(1, 3, 768, 768)
+inputs = processor(text=prompt, images=dummy_img, return_tensors="pt").to(device)
+
+torch.onnx.export(
+    model,
+    (inputs["input_ids"], inputs["pixel_values"]),
+    "/app/model.onnx",
+    opset_version=16,
+    do_constant_folding=True
+)
+print("✅ export success: /app/model.onnx")
+EOF
+
+# 执行导出
+RUN python /app/export.py
+
+# ==============================================
+# 输出模型
+# ==============================================
+FROM scratch AS export
+COPY --from=base /app/model.onnx model.onnx
