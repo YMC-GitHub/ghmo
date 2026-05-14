@@ -12,18 +12,20 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Clone MobileSAM
+      - name: Clone MobileSAM repo
         run: git clone https://github.com/ChaoningZhang/MobileSAM.git
 
       - name: Install dependencies
         run: |
           cd MobileSAM
-          pip install torch torchvision timm opencv-python
+          pip install torch torchvision timm opencv-python pillow
           pip install onnx onnxsim
 
-      - name: Export ONNX
+      # ✅ 关键修复：export PYTHONPATH=./
+      - name: Export ONNX (official script)
         run: |
           cd MobileSAM
+          export PYTHONPATH=./
           python scripts/export_onnx_model.py \
             --checkpoint weights/mobile_sam.pt \
             --model-type vit_t \
