@@ -26,14 +26,13 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # pip 国内源
 # RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
-# ===========================
-# 一次性安装所有！防止重复下载
-# ===========================
-# 1. 先装普通依赖（阿里云源，正常速度）
-RUN pip install "numpy<2" transformers pillow einops timm
 
-# 2. 再单独装 torch（只用官方源装这一个包）
-RUN pip install torch==2.2.0+cpu --index-url https://download.pytorch.org/whl/cpu
+# 装一个兼容所有包的 torch 版本！
+RUN pip install torch==2.4.0+cpu --index-url https://download.pytorch.org/whl/cpu
+
+# 装其它依赖
+RUN pip install "numpy<2" transformers pillow einops timm
+# ======================================================
 
 
 # 导出脚本
