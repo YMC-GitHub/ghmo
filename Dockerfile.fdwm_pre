@@ -31,11 +31,12 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # ===========================
 RUN pip install "numpy<2" \
     "torch==2.2.0+cpu" \
-    transformers==4.41.0 \
+    transformers \
     pillow \
     einops \
     timm \
     --index-url https://download.pytorch.org/whl/cpu
+
 
 # 导出脚本
 COPY <<EOF /app/export.py
