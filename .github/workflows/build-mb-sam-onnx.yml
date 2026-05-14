@@ -1,6 +1,8 @@
 name: Export MobileSAM to ONNX & Release
 
 on:
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -28,52 +30,21 @@ jobs:
       - name: Clone MobileSAM repo
         run: git clone https://github.com/ChaoningZhang/MobileSAM.git
 
-#       - name: Create export script
-#         run: |
-#           cat > MobileSAM/export_onnx.py << 'EOF'
-# import torch
-# import onnx
-# import onnxsim
-# from mobile_sam import sam_model_registry
+      - name: Run ONNX export
+        run: |
+          cp scripts/MobileSAM/export_onnx.py MobileSAM/
+          cd MobileSAM
+          python export_onnx.py
 
-# # 加载模型
-# model = sam_model_registry["vit_t"](checkpoint="../weights/mobile_sam.pt")
-# model.eval()
+      - name: Prepare output file
+        run: |
+          mkdir -p output
+          cp MobileSAM/mobile_sam.onnx output/
 
-# # 构造输入
-# dummy_input = torch.randn(1, 3, 640, 640)
-
-# # 导出 ONNX
-# torch.onnx.export(
-#     model,
-#     dummy_input,
-#     "mobile_sam.onnx",
-#     opset_version=17,
-#     input_names=["image"],
-#     output_names=["masks", "iou_predictions"],
-#     do_constant_folding=True
-# )
-
-# # 简化模型
-# model_onnx = onnx.load("mobile_sam.onnx")
-# model_onnx, check = onnxsim.simplify(model_onnx)
-# onnx.save(model_onnx, "mobile_sam.onnx")
-# EOF
-
-      # - name: Run ONNX export
-      #   run: |
-      #     cd MobileSAM
-      #     python export_onnx.py
-
-      # - name: Prepare output file
-      #   run: |
-      #     mkdir -p output
-      #     cp MobileSAM/mobile_sam.onnx output/
-
-      # - name: Create GitHub Release
-      #   uses: softprops/softprops/action-gh-release@v2
-      #   with:
-      #     tag_name: mobile-sam-onnx
-      #     files: output/mobile_sam.onnx
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-sam-onnx
+          files: output/mobile_sam.onnx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
