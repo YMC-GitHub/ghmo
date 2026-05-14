@@ -1,5 +1,4 @@
 name: Export MobileSAM to ONNX & Release
-
 on:
   workflow_dispatch:
 
@@ -7,45 +6,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # 克隆官方仓库（内部已包含 weights/mobile_sam.pt）
-      - name: Clone MobileSAM repo
+      - name: Clone MobileSAM
         run: git clone https://github.com/ChaoningZhang/MobileSAM.git
 
-      # 安装依赖
       - name: Install dependencies
         run: |
           cd MobileSAM
-          pip install -r requirements.txt
+          pip install torch torchvision timm opencv-python
           pip install onnx onnxsim
 
-      # ✅ 官方导出命令（直接用仓库里自带的模型）
-      - name: Export ONNX (official)
+      - name: Export ONNX
         run: |
           cd MobileSAM
           python scripts/export_onnx_model.py \
-            --checkpoint ./weights/mobile_sam.pt \
+            --checkpoint weights/mobile_sam.pt \
             --model-type vit_t \
-            --output ./mobile_sam.onnx
+            --output mobile_sam.onnx
 
-      # 准备输出
       - name: Prepare output
         run: |
           mkdir -p output
           cp MobileSAM/mobile_sam.onnx output/
 
-      # 上传到 Release
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mobile-sam-onnx
           files: output/mobile_sam.onnx
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
