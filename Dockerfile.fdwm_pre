@@ -1,13 +1,7 @@
-# ==============================================
-# 构建参数
-# ==============================================
 ARG MODEL_ID="microsoft/Florence-2-base"
 ARG DEVICE="cpu"
 ARG TORCH_DTYPE="float32"
 
-# ==============================================
-# 基础镜像
-# ==============================================
 FROM python:3.11-slim AS base
 
 ARG MODEL_ID
@@ -18,14 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 
 ENV PIP_ROOT_USER_ACTION=ignore
 
-# ===================== 稳定依赖 =====================
 RUN pip install torch==2.4.0+cpu --index-url https://download.pytorch.org/whl/cpu
-RUN pip install "numpy<2" transformers==4.44.0 pillow einops
-# ====================================================
+RUN pip install "numpy<2" transformers==4.44.0 pillow einops protobuf==3.20.3
 
-# 导出脚本（已完全修复）
 COPY <<EOF /app/export.py
-import os
 import torch
 from transformers import AutoProcessor, Florence2ForConditionalGeneration
 
@@ -33,7 +23,7 @@ model_id = "${MODEL_ID}"
 device = "${DEVICE}"
 torch_dtype = torch.${TORCH_DTYPE}
 
-# ✅ 正确模型
+# 加载模型
 model = Florence2ForConditionalGeneration.from_pretrained(
     model_id,
     torch_dtype=torch_dtype,
@@ -42,27 +32,34 @@ model = Florence2ForConditionalGeneration.from_pretrained(
 
 processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
 
-# ✅ 正确输入
+# 构造正确输入
 prompt = "<CAPTION>"
-dummy_img = torch.randn(1, 3, 768, 768)
+dummy_img = torch.randn(1, 3, 768, 768).to(device)
 inputs = processor(
     text=prompt,
     images=dummy_img,
     return_tensors="pt"
 ).to(device)
 
-# ✅ 正确导出
+# 静态输入 + 正确结构（Florence2 必须这样导出）
+input_ids = inputs["input_ids"]
+attention_mask = inputs["attention_mask"]
+pixel_values = inputs["pixel_values"]
+pixel_mask = inputs["pixel_mask"]
+
+# 导出
 torch.onnx.export(
     model,
-    (
-        inputs["input_ids"],
-        inputs["attention_mask"],
-        inputs["pixel_values"],
-        inputs["pixel_mask"]
-    ),
-    "/app/model.onnx",
+    args=(input_ids, attention_mask, pixel_values, pixel_mask),
+    f="/app/model.onnx",
     opset_version=16,
-    do_constant_folding=True
+    do_constant_folding=True,
+    input_names=["input_ids", "attention_mask", "pixel_values", "pixel_mask"],
+    output_names=["logits"],
+    dynamic_axes={
+        "input_ids": {0: "batch", 1: "seq_len"},
+        "attention_mask": {0: "batch", 1: "seq_len"},
+    }
 )
 
 print("✅ SUCCESS: /app/model.onnx")
@@ -70,8 +67,5 @@ EOF
 
 RUN python /app/export.py
 
-# ==============================================
-# 输出模型
-# ==============================================
 FROM scratch AS export
 COPY --from=base /app/model.onnx model.onnx
