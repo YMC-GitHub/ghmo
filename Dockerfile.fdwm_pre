@@ -18,14 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 
 ENV PIP_ROOT_USER_ACTION=ignore
 
-# ===================== 稳定依赖 =====================
-RUN pip install torch==2.4.0+cpu --index-url https://download.pytorch.org/whl/cpu
-# 关键修复：升级 transformers 支持 Florence2
-RUN pip install "numpy<2" transformers==4.44.2 pillow einops protobuf==3.20.3
+# 安装 torch 2.5.0 (兼容新 transformers)
+RUN pip install torch==2.5.0+cpu --index-url https://download.pytorch.org/whl/cpu
 
-# RUN pip install "numpy<2" transformers>=4.45.0 pillow einops protobuf==3.20.3
+# 安装新 transformers (支持 Florence2)
+RUN pip install "numpy<2" transformers>=4.45.0 pillow einops protobuf==3.20.3
 
-# ====================================================
 
 # 导出脚本（已完全修复）
 COPY <<EOF /app/export.py
