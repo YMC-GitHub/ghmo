@@ -18,12 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 
 ENV PIP_ROOT_USER_ACTION=ignore
 
-# 安装 torch 2.5.0 (兼容新 transformers)
+# 安装固定版本组合（唯一无冲突组合）
 RUN pip install torch==2.5.0+cpu --index-url https://download.pytorch.org/whl/cpu
-
-# 安装新 transformers (支持 Florence2)
-RUN pip install "numpy<2" transformers>=4.45.0 pillow einops protobuf==3.20.3
-
+RUN pip install "numpy<2" transformers==4.48.0 pillow einops protobuf==3.20.3 torchvision
 
 # 导出脚本（已完全修复）
 COPY <<EOF /app/export.py
@@ -35,14 +32,19 @@ model_id = "${MODEL_ID}"
 device = "${DEVICE}"
 torch_dtype = torch.${TORCH_DTYPE}
 
-# ✅ 正确模型
+# ✅ 修复：强制指定 revision 解决 bos token 配置报错
 model = Florence2ForConditionalGeneration.from_pretrained(
     model_id,
+    revision="refs/pr/13",
     torch_dtype=torch_dtype,
     trust_remote_code=True
 ).to(device).eval()
 
-processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+processor = AutoProcessor.from_pretrained(
+    model_id,
+    revision="refs/pr/13",
+    trust_remote_code=True
+)
 
 # ✅ 正确输入
 prompt = "<CAPTION>"
