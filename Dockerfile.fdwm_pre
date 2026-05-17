@@ -19,8 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 ENV PIP_ROOT_USER_ACTION=ignore
 
 # 安装固定版本组合（唯一无冲突组合）
-RUN pip install torch==2.5.0+cpu --index-url https://download.pytorch.org/whl/cpu
-RUN pip install "numpy<2" transformers==4.48.0 pillow einops protobuf==3.20.3 torchvision
+# RUN pip install torch==2.5.0+cpu --index-url https://download.pytorch.org/whl/cpu
+# RUN pip install "numpy<2" transformers==4.48.0 pillow einops protobuf==3.20.3 torchvision
+
+RUN pip install torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install "numpy<2" transformers>=4.49.0 pillow einops protobuf==3.20.3
+
 
 # 导出脚本（已完全修复）
 COPY <<EOF /app/export.py
